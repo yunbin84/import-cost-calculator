@@ -311,7 +311,7 @@ def parse_invoice_pdf(file_bytes: bytes, filename: str) -> dict[str, Any]:
 
     def classify(line: str, label: str, current_section: str) -> str:
         upper = line.upper()
-        if label in {"관세", "부가세"} or "VAT" in upper or "TAX" in upper:
+        if label in {"관세", "부가세"}:
             return "tax"
         if current_section == "tax":
             return "tax"
@@ -343,7 +343,7 @@ def parse_invoice_pdf(file_bytes: bytes, filename: str) -> dict[str, Any]:
         ]
         if any(word in upper for word in logistics_words):
             return "logistics"
-        return "other"
+        return ""
 
     def amount_from(line: str) -> tuple[int, int]:
         amounts = [
@@ -360,6 +360,8 @@ def parse_invoice_pdf(file_bytes: bytes, filename: str) -> dict[str, Any]:
         return amount, vat
 
     def add_cost(group: str, label: str, amount: int, source: str) -> None:
+        if group not in {"tax", "logistics"}:
+            return
         source_key = f"{group}|{label}|{amount}|{source}"
         if amount <= 0 or source_key in seen_sources:
             return
@@ -390,6 +392,25 @@ def parse_invoice_pdf(file_bytes: bytes, filename: str) -> dict[str, Any]:
             continue
         if line.startswith("SUB TOTAL") or line.startswith("TOTAL") or line.startswith("("):
             continue
+        if any(
+            skip_word in line.upper()
+            for skip_word in [
+                "CIF",
+                "과세가격",
+                "총과세가격",
+                "총세액",
+                "세액합계",
+                "결제금액",
+                "제품금액",
+                "납부",
+                "입금",
+                "환율",
+                "신고",
+                "공급가",
+                "합계",
+            ]
+        ):
+            continue
 
         amount, vat = amount_from(line)
         if not amount:
@@ -407,6 +428,8 @@ def parse_invoice_pdf(file_bytes: bytes, filename: str) -> dict[str, Any]:
             label = re.split(r"\s+KRW\s+|\s+USD\s+|\s+CNY\s+", line, maxsplit=1)[0].strip()
             label = label[:32] or "인보이스 비용"
         group = classify(line, label, section)
+        if not group:
+            continue
         add_cost(group, label, amount, line)
         if vat:
             add_cost("tax", f"{label} VAT", vat, line)
