@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>수입 원가 계산기</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="panel goods-panel">
+        <header class="panel-head">
+          <div>
+            <span class="dot blue"></span>
+            <h1>중국 단가 계산</h1>
+          </div>
+          <p><span id="totalCnyLabel">¥0.00</span><strong id="chinaTotalLabel">₩0</strong></p>
+        </header>
+
+        <div class="upload-box" id="dropZone">
+          <div>
+            <strong>출고리스트 자동 인식</strong>
+            <span id="fileName">shipping list 엑셀 파일을 선택하세요</span>
+          </div>
+          <label class="file-button">
+            파일 선택
+            <input id="fileInput" type="file" accept=".xlsx,.xlsm" />
+          </label>
+        </div>
+
+        <div class="bundle-card active">
+          <div class="bundle-title">
+            <div>
+              <span class="box-icon"></span>
+              <strong>묶음 1</strong>
+              <small id="itemCount">0개</small>
+            </div>
+            <button class="icon-button" id="clearItems" title="품목 비우기">×</button>
+          </div>
+
+          <div id="itemList" class="item-list">
+            <div class="empty">엑셀을 업로드하면 품목이 여기에 표시됩니다.</div>
+          </div>
+
+          <div class="bundle-total">
+            <span>해당 묶음 개별 합계</span>
+            <div>
+              <strong id="bundleKrw">₩0</strong>
+              <small id="bundleCny">¥0.00</small>
+            </div>
+          </div>
+        </div>
+
+        <button id="addItem" class="add-bundle">+ 품목 직접 추가</button>
+
+        <div class="rate-card">
+          <label>
+            <span>공통 수수료</span>
+            <input id="commissionRate" type="number" min="0" step="0.1" value="0" />
+            <em>%</em>
+          </label>
+          <label>
+            <span>CNY 환율</span>
+            <input id="cnyRate" type="number" min="0" step="0.01" value="220.44" />
+            <em>₩</em>
+          </label>
+          <label>
+            <span>USD 환율</span>
+            <input id="usdRate" type="number" min="0" step="0.01" value="1523.64" />
+            <em>₩</em>
+          </label>
+          <button id="refreshRates" class="primary wide">환율 기준으로 다시 계산</button>
+        </div>
+      </section>
+
+      <section class="panel cost-panel">
+        <header class="panel-head">
+          <div>
+            <span class="dot green"></span>
+            <h2>한국 통관/물류 비용</h2>
+          </div>
+          <p><strong id="koreaTotalLabel">₩0</strong></p>
+        </header>
+
+        <div class="doc-box">
+          <div>
+            <strong>통관/물류비 인보이스 자동 인식</strong>
+            <span id="invoiceName">프렌드 해운항공 INV PDF를 선택하세요</span>
+          </div>
+          <label class="file-button ghost">
+            파일 선택
+            <input id="invoiceInput" type="file" accept=".pdf" />
+          </label>
+        </div>
+
+        <div class="cost-group red">
+          <div class="cost-title">
+            <strong>세금</strong>
+            <button class="small-button" data-add-cost="tax">+ 추가</button>
+          </div>
+          <div id="taxCosts" class="cost-list"></div>
+        </div>
+
+        <div class="cost-group blue">
+          <div class="cost-title">
+            <strong>물류비</strong>
+            <button class="small-button" data-add-cost="logistics">+ 추가</button>
+          </div>
+          <div id="logisticsCosts" class="cost-list"></div>
+        </div>
+
+        <div class="cost-group gray">
+          <div class="cost-title">
+            <strong>기타 비용</strong>
+            <button class="small-button" data-add-cost="other">+ 추가</button>
+          </div>
+          <div id="otherCosts" class="cost-list"></div>
+        </div>
+      </section>
+
+      <section class="panel result-panel">
+        <div class="top-actions">
+          <button id="loadDemo" class="secondary">예시</button>
+          <button id="resetAll" class="danger">리셋</button>
+          <button id="saveLocal" class="dark">임시저장</button>
+        </div>
+
+        <div class="save-box">
+          <h2>결과 저장하기</h2>
+          <div class="save-row">
+            <input id="saveName" placeholder="저장할 이름 입력" />
+            <button id="downloadJson" class="primary">저장</button>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-head">
+            <h2>수입 원가 합계</h2>
+            <strong id="grandTotal">₩0</strong>
+          </div>
+
+          <div class="final-list">
+            <h3>개별 상품 최종 단가</h3>
+            <div id="finalItems"></div>
+          </div>
+
+          <details class="formula-box">
+            <summary>계산 공식 보기</summary>
+            <p>품목 중국원가 = (수량 × 중국 단가) + 내륙 운송비</p>
+            <p>원화 중국원가 = 품목 중국원가 × CNY 환율</p>
+            <p>공통 수수료 = 원화 중국원가 × 수수료율</p>
+            <p>한국 비용은 품목별 중국원가 비율대로 배분합니다.</p>
+            <p>최종 단가 = (원화 중국원가 + 수수료 + 배분 비용) ÷ 출고수량</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
