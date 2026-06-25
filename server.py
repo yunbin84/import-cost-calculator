@@ -5,13 +5,11 @@ import json
 import mimetypes
 import os
 import re
-import warnings
+from email.parser import BytesParser
+from email.policy import default
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-import cgi
 
 import openpyxl
 import pdfplumber
@@ -242,6 +240,33 @@ def parse_invoice_pdf(file_bytes: bytes, filename: str) -> dict[str, Any]:
     return {"meta": meta, "costs": costs, "totals": totals, "rawText": text[:4000]}
 
 
+def parse_multipart_file(
+    headers: Any,
+    body: bytes,
+    field_name: str = "file",
+) -> tuple[bytes, str] | None:
+    content_type = headers.get("Content-Type", "")
+    if not content_type.startswith("multipart/form-data"):
+        return None
+
+    message_bytes = (
+        f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+        + body
+    )
+    message = BytesParser(policy=default).parsebytes(message_bytes)
+    for part in message.iter_parts():
+        disposition = part.get("Content-Disposition", "")
+        if "form-data" not in disposition:
+            continue
+        name = part.get_param("name", header="content-disposition")
+        if name != field_name:
+            continue
+        filename = part.get_filename() or "upload"
+        payload = part.get_payload(decode=True) or b""
+        return payload, filename
+    return None
+
+
 class Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path: str) -> str:
         if path == "/" or path.startswith("/static/"):
@@ -265,23 +290,17 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(413, "uploaded file is too large")
             return
 
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
-                "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
-            },
+        uploaded = parse_multipart_file(
+            self.headers,
+            self.rfile.read(content_length),
+            field_name="file",
         )
-        field = form["file"] if "file" in form else None
-        if field is None or not getattr(field, "file", None):
+        if uploaded is None:
             self.send_error(400, "file field is required")
             return
 
         try:
-            file_bytes = field.file.read()
-            filename = field.filename or "upload"
+            file_bytes, filename = uploaded
             if self.path == "/api/import-invoice":
                 payload = parse_invoice_pdf(file_bytes, filename)
             else:
