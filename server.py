@@ -21,6 +21,10 @@ DEFAULT_PORT = 8765
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+
+
 def _num(value: Any) -> float:
     if value is None:
         return 0.0
@@ -332,8 +336,8 @@ class Handler(SimpleHTTPRequestHandler):
 def main() -> None:
     port = int(os.environ.get("PORT", DEFAULT_PORT))
     host = os.environ.get("HOST", "0.0.0.0")
-    server = ThreadingHTTPServer((host, port), Handler)
-    print(f"수입원가 계산기: http://{host}:{port}")
+    server = ReusableThreadingHTTPServer((host, port), Handler)
+    print(f"수입원가 계산기: http://{host}:{port}", flush=True)
     server.serve_forever()
 
 
